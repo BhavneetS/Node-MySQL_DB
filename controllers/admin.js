@@ -13,8 +13,24 @@ exports.postAddProduct = (req, res, next) => {
   const imageUrl = req.body.imageUrl;
   const price = req.body.price;
   const description = req.body.description;
-  const product = new Product(null, title, imageUrl, description, price);
-  product.save();
+  // const product = new Product(null, title, imageUrl, description, price);
+  // product.save();
+  /* 
+    Create mehod helps us to save the data to the DB awith help of Promises
+  */
+  Product.create({
+    title: title,
+    price: price,
+    imageUrl: imageUrl,
+    description: description
+  }).then(result => {
+    // console.log('Created Product');
+    res.redirect('/admin/products');
+  }).catch(err => {
+    // console.log(err);
+  });
+
+
   res.redirect('/');
 };
 
@@ -24,7 +40,7 @@ exports.getEditProduct = (req, res, next) => {
     return res.redirect('/');
   }
   const prodId = req.params.productId;
-  Product.findById(prodId, product => {
+  Product.findByPk(prodId).then(product => {
     if (!product) {
       return res.redirect('/');
     }
@@ -34,38 +50,53 @@ exports.getEditProduct = (req, res, next) => {
       editing: editMode,
       product: product
     });
-  });
+  })
+  .catch(err => {
+    console.log("error is",err)
+  }) 
 };
 
-exports.postEditProduct = (req, res, next) => {
+exports.postEditProduct = async (req, res, next) => {
   const prodId = req.body.productId;
-  const updatedTitle = req.body.title;
-  const updatedPrice = req.body.price;
-  const updatedImageUrl = req.body.imageUrl;
-  const updatedDesc = req.body.description;
-  const updatedProduct = new Product(
-    prodId,
-    updatedTitle,
-    updatedImageUrl,
-    updatedDesc,
-    updatedPrice
-  );
-  updatedProduct.save();
-  res.redirect('/admin/products');
+  try {
+    const product = await Product.findByPk(prodId);
+    if (!product) {
+      return res.redirect('/');
+    }
+
+    product.title = req.body.title;
+    product.price = req.body.price;
+    product.imageUrl = req.body.imageUrl;
+    product.description = req.body.description;
+
+    await product.save();
+    res.redirect('/admin/products');
+  } catch (err) {
+    next(err);
+  }
 };
 
-exports.getProducts = (req, res, next) => {
-  Product.fetchAll(products => {
+exports.getProducts = async (req, res, next) => {
+  const products = await Product.findAll();
+  // findAll returns an array of Sequelize instances; read fields from an item (e.g. products[0].title), not the array.
+  // console.log('products are ', products, products.title)
     res.render('admin/products', {
       prods: products,
       pageTitle: 'Admin Products',
       path: '/admin/products'
     });
-  });
 };
 
 exports.postDeleteProduct = (req, res, next) => {
   const prodId = req.body.productId;
-  Product.deleteById(prodId);
-  res.redirect('/admin/products');
+  /* 
+    Deletion can also be handled by first fetching the prodcut and then calling destroy on it
+    const product = await Product.findByPk(prodId);
+    if (product) {
+      await product.destroy();
+    }
+  */
+  Product.destroy({ where: { id: prodId } }).then(()=> {
+    res.redirect('/admin/products');
+  });
 };
